@@ -1,0 +1,9 @@
+# Verified against the versions below; newer transformers (5.x) is handled too --
+# the cache helpers in latent_comm/kvcache.py cover both the legacy tuple API and
+# the DynamicCache.layers API.
+torch>=2.1
+transformers>=4.40
+datasets>=2.18
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.7
