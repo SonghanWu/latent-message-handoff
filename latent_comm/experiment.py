@@ -109,8 +109,12 @@ def run(lm: LM, examples: Sequence[data_mod.Example], cfg: Config) -> List[dict]
 
             if s_level == 0:
                 # invariant: with no side information the two scores are the same pass
-                assert torch.allclose(sender_sup, receiver_sup, atol=1e-3), (
-                    "sender and receiver surprisal must coincide at s=0; "
+                # fp16 on GPU is not bit-reproducible across two identical passes,
+                # so allow a little slack -- a genuine misalignment of the two scoring
+                # contexts moves this by orders of magnitude more than 2e-2.
+                gap = float((sender_sup - receiver_sup).abs().max())
+                assert gap < 2e-2, (
+                    f"sender and receiver surprisal must coincide at s=0 (max gap {gap:.4f}); "
                     "they differ, which means the two scoring contexts are not aligned"
                 )
 

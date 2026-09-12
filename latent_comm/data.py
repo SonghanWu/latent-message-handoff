@@ -73,9 +73,25 @@ def load_examples(
             ds = load_dataset(name, config, split=split)
             break
         except Exception as exc:  # noqa: BLE001 - we want the fallback chain
-            errors.append(f"{name}/{config}: {exc}")
+            errors.append(f"{name}/{config}: {type(exc).__name__}: {exc}")
+
     if ds is None:
-        raise RuntimeError("could not load HotpotQA:\n  " + "\n  ".join(errors))
+        # datasets >= 4 dropped script-based loading; read the parquet export directly.
+        try:
+            ds = load_dataset(
+                "parquet",
+                data_files=(
+                    f"hf://datasets/hotpotqa/hotpot_qa/distractor/{split}-*.parquet"
+                ),
+                split="train",
+            )
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"parquet fallback: {type(exc).__name__}: {exc}")
+
+    if ds is None:
+        raise RuntimeError(
+            "could not load HotpotQA (distractor). Tried:\n  " + "\n  ".join(errors)
+        )
 
     rng = random.Random(seed)
     order = list(range(len(ds)))
