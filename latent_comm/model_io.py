@@ -217,8 +217,6 @@ def greedy_answer(
     max_new_tokens: int = 24,
 ) -> str:
     """Greedy decode from a handed-over cache, for the secondary EM/F1 metric."""
-    from .kvcache import to_legacy, from_legacy
-
     work = from_legacy(tuple((k.clone(), v.clone()) for k, v in to_legacy(cache)))
     ids = question_ids
     pos = question_start_pos

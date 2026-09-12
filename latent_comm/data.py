@@ -9,8 +9,8 @@ That overlap is the axis the claim makes a prediction about.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import List, Sequence, Tuple
 
 import torch
 

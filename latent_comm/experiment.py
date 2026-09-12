@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass, field
-from typing import Dict, List, Optional, Sequence
+from dataclasses import dataclass
+from typing import Dict, List, Sequence
 
 import torch
 
@@ -36,9 +36,6 @@ def render_side_info(ex: data_mod.Example, para_ids: Sequence[int]) -> str:
     if not para_ids:
         return ""
     return "".join(f"[{j + 1}] {ex.paragraphs[j]}\n\n" for j in sorted(para_ids))
-
-
-_render_side_info = render_side_info  # backwards-compatible alias
 
 
 def _normalise(text: str) -> str:

@@ -13,12 +13,14 @@ import os
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(_HERE))
+sys.path.insert(0, _HERE)
 
 from latent_comm.data import Example
 from latent_comm.experiment import Config, run
 from latent_comm.stats import comparison_table, interaction_test, to_frame
-from scripts.smoke_test import build_toy_lm
+from smoke_test import build_toy_lm
 
 
 def fake_examples(n: int = 4):
