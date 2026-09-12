@@ -1,18 +1,9 @@
-"""KV-cache plumbing: extract a worker cache, slice it by position, reuse it as a
-receiver's past.
+"""Slice a KV cache by position and hand the subset to a second forward pass.
 
-The whole experiment rests on one operation -- take a subset of the positions in a
-cache and hand that subset to a second forward pass -- so this module is deliberately
-small and explicit about the two things that are easy to get wrong:
-
-1.  RoPE.  Keys are written into the cache *after* the rotary embedding is applied,
-    so every key carries the absolute position it was computed at.  We keep those
-    original position ids (we never re-rotate), which means the receiver sees a
-    position sequence with holes in it.  That is the standard choice in the KV
-    compression literature and it is the one we document in the report.
-
-2.  Cache format.  transformers has moved from tuple-of-tuples to `DynamicCache`.
-    We normalise to legacy tuples internally and convert back at the boundary.
+Two things are easy to get wrong here: keys are cached *after* RoPE, so we keep the
+original position ids rather than re-rotating (the receiver sees a position sequence
+with holes); and transformers moved from tuple-of-tuples to `DynamicCache`, so we
+normalise to tuples internally and convert back at the boundary.
 """
 
 from __future__ import annotations
@@ -67,11 +58,10 @@ def num_layers(cache) -> int:
 # the one operation that matters
 # --------------------------------------------------------------------------------------
 def select_positions(cache, positions: Sequence[int], device=None):
-    """Keep only `positions` (indices into the sequence axis) in every layer.
+    """Keep only `positions` in every layer, ascending, without renumbering them.
 
-    Positions are kept in ascending order.  We do *not* renumber them: the keys keep
-    the rotary phase they were computed with, so the receiver's attention sees the
-    original relative distances (with gaps).  See report section "Position handling".
+    The keys keep the rotary phase they were computed with, so the receiver sees the
+    original relative distances with gaps.  See report, "Position handling".
     """
     legacy = to_legacy(cache)
     idx = torch.as_tensor(sorted(int(p) for p in positions), dtype=torch.long)
@@ -89,13 +79,13 @@ def select_positions(cache, positions: Sequence[int], device=None):
 
 
 def slice_layers(cache, layer_ids: Sequence[int]) -> LegacyCache:
-    """Pull a few layers out for saving to disk (the submission asks for tensors)."""
+    """Pull a few layers out for saving to disk."""
     legacy = to_legacy(cache)
     return tuple((legacy[i][0].cpu(), legacy[i][1].cpu()) for i in layer_ids)
 
 
 def cache_bytes(cache) -> int:
-    """Exact byte count of a cache -- the communication cost we are budgeting."""
+    """Exact byte count -- the communication cost being budgeted."""
     total = 0
     for k, v in to_legacy(cache):
         total += k.numel() * k.element_size() + v.numel() * v.element_size()

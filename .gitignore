@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-results/*
-!results/.gitkeep
 .DS_Store
+
+# results/ is deliberately tracked -- the saved tensors and figures are the submission

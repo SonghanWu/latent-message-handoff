@@ -138,39 +138,112 @@ a toy model and asserts the *s* = 0 invariant end to end.
 
 ## 6. Result
 
-> **[RESULTS PENDING — fill from `results/` after the run.]**
-> Insert `results/main.png` (answer NLL vs budget, one panel per side-information level,
-> with full-cache and no-handoff reference lines), the paired comparison table
-> (`comparisons.csv`) at the 10 % budget, and the interaction table
-> (`interaction.csv`). State the sign and CI of the difference-of-differences before
-> interpreting anything else.
+100 questions, Qwen2.5-0.5B-Instruct, documents averaging 1391 tokens. Figure:
+`results/main.png`. Full tables: `results/comparisons.csv`, `results/rows.json`.
 
-`results/scores.png` carries the qualitative version: over the paragraphs the receiver
-already holds, receiver-conditioned surprisal collapses while both sender-side signals
-continue unchanged — they have no way to notice.
+**Mean answer NLL** (lower is better), 10 % budget:
+
+| rule | s = 0 | s = 3 | s = 6 |
+|---|---|---|---|
+| no handoff (reference) | 3.739 | 8.304 | 6.215 |
+| random | 3.417 | 3.940 | 4.110 |
+| sender_attention | 3.902 | 4.157 | 4.154 |
+| sender_surprisal | 3.024 | 3.348 | 3.610 |
+| dedup_sender_surprisal | 3.024 | 3.107 | 2.803 |
+| receiver_surprisal | 3.024 | 3.024 | 2.918 |
+| full cache (reference) | 2.386 | 2.386 | 2.386 |
+
+**Paired differences** (negative = first rule better; bootstrap CI over the 100 questions):
+
+| comparison | s = 0 | s = 3 | s = 6 |
+|---|---|---|---|
+| receiver − sender_surprisal | 0.000 | **−0.324** [−0.492, −0.174] | **−0.692** [−0.990, −0.415] |
+| receiver − dedup_sender | 0.000 | −0.083 [−0.201, +0.015] | +0.115 [−0.025, +0.286] |
+| dedup_sender − sender_surprisal | 0.000 | **−0.242** [−0.399, −0.098] | **−0.807** [−1.102, −0.528] |
+
+Three things this says.
+
+**The invariant holds exactly.** At s = 0 the three surprisal rules score with an
+identical context, and their answer NLLs agree to every printed digit (3.024 / 3.024 /
+3.024; paired difference 0.000, not merely small). The scoring channels are aligned;
+nothing downstream is comparing misaligned signals.
+
+**Conditioning works, and its advantage grows with side information.** Against the
+matched sender-side baseline the margin is 0.000 → −0.324 → −0.692 as the receiver goes
+from 0 to 3 to 6 held paragraphs. Because the s = 0 difference is identically zero per
+question, the difference-of-differences equals the s = 6 column: −0.598 [−0.839, −0.374],
+−0.692 [−0.990, −0.415], −0.615 [−0.904, −0.328] at the 5 / 10 / 20 % budgets — the
+predicted interaction, significant at every budget.
+
+The mechanism is visible in the budget accounting. At s = 6 and a 20 % budget,
+`sender_surprisal` spends 182 of its 278 tokens (**65 %**) on positions the receiver
+already holds; `receiver_surprisal` spends 8 (**2.8 %**). And `results/scores.png` shows
+why: over the paragraphs the receiver holds, receiver-conditioned surprisal collapses to
+the floor while the sender-side signal carries on unchanged.
+
+In absolute terms, at s = 6 and a 20 % budget `receiver_surprisal` closes **96.5 %** of
+the distance between no handoff and the full cache (2.520 vs 6.215 and 2.386), against
+80.5 % for `sender_surprisal`.
+
+**The sharper claim fails.** `receiver_surprisal` and `dedup_sender_surprisal` are
+statistically indistinguishable in all six non-trivial cells; every CI straddles zero.
+Everything conditioning buys here is already bought by dropping what the receiver holds
+verbatim. This is falsifier (b) from §3, declared before the run, and it triggered.
 
 ## 7. Interpretation
 
-*To be written against the numbers, not the hypothesis.*
+**What is supported.** The directional prediction: at a fixed budget, ranking by
+receiver-conditioned novelty beats ranking by sender-side novelty, and the margin scales
+with the receiver's side information. The effect is not subtle — 0.69 nats at s = 6 — and
+the interaction is significant at every budget.
 
-**One plausible alternative explanation.** The receiver-conditioned score comes from a
-forward pass with a longer prefix, so it inherits a prefix-length effect as well as a
-prefix-*content* effect. The control that separates them: match prefix length using
-paragraphs sampled from *other* questions. If the advantage survives that, content is
-doing the work; if it does not, the result is about prefix length. This is the first
-thing I would add.
+**What is not.** The interesting half of the Wyner–Ziv reading — that the relevant
+redundancy is what the decoder can *infer*, not only what it literally holds — is not
+supported by this experiment. The reason is a limitation of the testbed rather than
+evidence against the idea: HotpotQA hands the receiver its paragraphs **verbatim**, so
+essentially all redundancy here *is* literal, and the design has no power to separate the
+two hypotheses. On this testbed, Wyner–Ziv earns exactly one thing: know what the receiver
+has and skip it. That is worth stating plainly, because it is less than the argument in §1
+promised.
 
-**Where the connection breaks down.** Our rule is not a Wyner–Ziv code. The theorem's
-substance — the conditional rate without observing *Y* — depends on binning, which we do
-not implement, so the measured advantage is an upper bound on what a deployable scheme
-could reach. What the experiment can establish is whether the conditional *objective* is
-worth the engineering; it cannot establish that the objective is attainable under the
-constraint that makes the theorem interesting.
+**A baseline that did not work, and why it matters.** `sender_attention` performs at or
+below `random` (59.8 % vs 59.2 % of the gap closed at s = 6, 20 %). `results/scores.png`
+shows the cause: accumulated attention is dominated by the attention sink at position 0,
+and after normalisation every other position is flattened to near zero, so the rule
+degenerates into "keep the beginning". This is a property of our summed-over-everything
+implementation in a prefill setting, **not a fair reproduction of H2O**, which also keeps a
+recent window and accumulates during decoding. The `receiver − sender_attention` column
+should therefore not be read as beating H2O; the load-bearing comparison is against
+`sender_surprisal`, which is matched to the proposed rule in everything but conditioning.
+Excluding sink positions before ranking, or scoring with a SnapKV-style observation
+window, is the fix.
 
-**Follow-up.** Charge a receiver→sender digest to the same budget: let the receiver send
-*k* scalars summarising its state, rank at the sender against that digest, and count *k*
-against the communication budget. If a small digest recovers most of the oracle gap, the
-idea is practical and the next question is what the digest should be — which is exactly
-where the binning literature becomes relevant rather than decorative. If it does not, the
-oracle result stays a curiosity and the honest conclusion is that sender-side ranking is
-good enough.
+**One more alternative explanation.** The receiver-conditioned score comes from a forward
+pass with a longer prefix, so it inherits a prefix-*length* effect alongside the
+prefix-*content* effect. The control that separates them: pad the prefix to the same
+length with paragraphs drawn from *other* questions. If the advantage survives, content is
+doing the work.
+
+**An oddity worth noting.** The no-handoff reference is *worse* with side information than
+without (8.30 at s = 3 and 6.22 at s = 6, against 3.74 at s = 0): handing the model
+distractor paragraphs and no evidence is worse than handing it nothing. It does not affect
+any within-cell comparison, but it is a reminder that "more receiver context" is not
+monotonically good, and that the handoff is doing more than topping up a partial answer.
+
+**What is still an oracle.** Our rule reads the receiver's state directly. The substance
+of Wyner–Ziv is reaching the conditional rate *without* observing the side information, via
+binning, which we do not implement. The measured margin is an upper bound on what a
+deployable scheme could reach.
+
+**Follow-up, in priority order.**
+
+1. *Paraphrased side information.* Give the receiver rewritten paragraphs — same facts,
+   different wording. Literal deduplication stops working by construction, so only semantic
+   conditioning can find the redundancy. This is the experiment that would actually test
+   the claim that failed above, and the present result is what makes it the obvious next
+   step.
+2. *A fair salience baseline.* Re-run `sender_attention` with sink positions excluded, so
+   the comparison against the deployed family means something.
+3. *Charge the receiver's digest to the budget.* Let the receiver send k scalars
+   summarising its state, rank at the sender against that digest, and count k against the
+   communication budget. That is the step from oracle to codec.

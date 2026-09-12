@@ -20,7 +20,33 @@ with the receiver's context is what conditionality specifically predicts.
 
 **Falsifiers.** Sender-side rules matching or beating it; the receiver-conditioned rule
 collapsing to literal deduplication; the margin not growing with side information. All
-three are measured, not asserted.
+three were declared before the run and all three were measured.
+
+## Result
+
+100 questions, Qwen2.5-0.5B-Instruct, ~1391-token documents. Figure: `results/main.png`.
+
+**The prediction holds against the matched baseline.** Answer-NLL margin of
+`receiver_surprisal` over `sender_surprisal` as the receiver's side information grows
+(10 % budget): 0.000 → −0.324 [−0.492, −0.174] → −0.692 [−0.990, −0.415]. The interaction
+is significant at every budget. At s = 6 and a 20 % budget the rule closes **96.5 %** of
+the distance from no-handoff to the full cache, and spends **2.8 %** of its budget on
+content the receiver already held — against **65 %** for the sender-side rule.
+
+**The sharper claim fails.** `receiver_surprisal` and `dedup_sender_surprisal` are
+indistinguishable in all six non-trivial cells. On this testbed, conditioning buys exactly
+what literal deduplication buys and nothing more — falsifier (b), triggered. HotpotQA hands
+the receiver its paragraphs verbatim, so all redundancy here *is* literal; the design has
+no power to separate "inferable" from "held". The fix is paraphrased side information, and
+that is the first follow-up.
+
+**One baseline is broken, and we say so.** `sender_attention` lands at or below `random`:
+accumulated attention is dominated by the position-0 sink, flattening every other position
+(visible in `results/scores.png`). That is a property of our prefill-time implementation,
+not a fair reproduction of H2O — so the comparison against it should not be read as
+beating the deployed family. The load-bearing comparison is against `sender_surprisal`.
+
+Full numbers and discussion: [`report/report.md`](report/report.md).
 
 ---
 

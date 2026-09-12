@@ -1,10 +1,8 @@
-"""Paired statistics and the one figure the report needs.
+"""Paired statistics and the report's figures.
 
-Every rule is evaluated on the same questions at the same budget, so the right
-comparison is a paired one: for each question take the difference in answer NLL
-between two rules and bootstrap over questions.  With ~100 questions and a 0.5B model
-the between-question variance dwarfs the between-rule effect, so an unpaired
-comparison would hide a real difference behind noise.
+Every rule sees the same questions at the same budget, so comparisons are paired and
+bootstrapped over questions -- between-question variance dwarfs the between-rule
+effect, and an unpaired test would hide a real difference in noise.
 """
 
 from __future__ import annotations
@@ -102,9 +100,8 @@ def interaction_test(
 ):
     """Does the advantage of `rule_a` grow with the receiver's side information?
 
-    This is the prediction that separates the Wyner-Ziv reading from "conditioning is
-    just deduplication".  We bootstrap the difference-of-differences between the
-    largest and smallest side-information level.
+    Bootstrapped difference-of-differences between the largest and smallest
+    side-information level.  Pass rule_b="sender_surprisal" for the matched comparison.
     """
     import pandas as pd
 
@@ -210,9 +207,8 @@ def plot_scores(
 ):
     """Show the three ranking signals over one document.
 
-    The qualitative point of the whole experiment is visible here: over the paragraphs
-    the receiver already holds, the receiver-conditioned surprisal collapses while the
-    sender-side signals do not notice anything.
+    Over the paragraphs the receiver holds, receiver-conditioned surprisal collapses
+    while the sender-side signals carry on unchanged.
     """
     import matplotlib.pyplot as plt
     import numpy as np

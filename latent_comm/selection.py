@@ -1,24 +1,16 @@
 """The five selection rules that compete at equal budget.
 
-All five answer the same question -- "which B positions of the worker's cache do we
-ship?" -- and differ only in the score they rank positions by.  The point of the
-experiment is the contrast between rules 3, 4 and 5:
+All five answer "which B positions of the worker's cache do we ship?" and differ only
+in the score they rank by.  The decisive contrasts are among rules 3-5, which share a
+scoring function and differ only in what its prefix contains:
 
-    3. sender_surprisal          task-conditioned, blind to the receiver
-    4. dedup_sender_surprisal    the same, minus anything the receiver literally holds
-    5. receiver_surprisal        conditioned on the receiver's side information
+    5 vs 3  does conditioning on the receiver help at all?
+    5 vs 4  does it help beyond dropping literal duplicates?  (this one failed --
+            see report section 6)
 
-    5 vs 3  isolates "does conditioning on the receiver help at all?"
-    5 vs 4  isolates "does it help beyond dropping literal duplicates?" -- this is the
-            claim the Wyner-Ziv reading makes and the one that can fail.
-
-Two invariants worth knowing when reading results:
-
-*   With no side information (s = 0) rules 3, 4 and 5 select identical sets by
-    construction.  Any divergence there is a bug, and the experiment asserts it.
-*   Every rule is forced to keep the first `n_sink` positions, and those count against
-    the budget.  Attention sinks matter enough that leaving them to chance would make
-    the sink, not the selection rule, the variable under test.
+Two invariants: at s = 0 rules 3, 4 and 5 select identical sets by construction (the
+experiment asserts it), and every rule is forced to keep the first `n_sink` positions
+against its budget, so sink survival is not the variable under test.
 """
 
 from __future__ import annotations
@@ -47,7 +39,7 @@ class Selection:
 
 
 def _smooth(score: torch.Tensor, window: int) -> torch.Tensor:
-    """SnapKV-style pooling: makes the selection pick short spans instead of confetti."""
+    """SnapKV-style pooling: pick short spans instead of confetti."""
     if window <= 1:
         return score
     pad = window // 2

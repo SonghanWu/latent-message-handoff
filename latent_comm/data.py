@@ -1,12 +1,9 @@
 """HotpotQA (distractor) as a controllable side-information testbed.
 
-Why this dataset.  Each question ships with exactly ten paragraphs: two that are
-needed to answer it ("gold") and eight distractors.  That gives us a knob no
-synthetic setup gives for free -- we can hand the receiver a chosen number of
-*distractor* paragraphs as its own context while guaranteeing that the information
-it actually needs only exists in the worker's cache.  Growing that number grows the
-overlap between the worker's state and what the receiver already has, which is
-exactly the axis the Wyner-Ziv argument makes a prediction about.
+Each question ships with two gold paragraphs and eight distractors.  We hand the
+receiver a chosen number of *distractors* -- never a gold one -- so the evidence it
+needs must cross the handoff while the overlap with the worker's cache is ours to set.
+That overlap is the axis the claim makes a prediction about.
 """
 
 from __future__ import annotations
@@ -129,10 +126,10 @@ def load_examples(
 
 
 def render_and_tokenize(lm, ex: Example) -> TokenizedExample:
-    """Lay the paragraphs out as one document and record each paragraph's token span.
+    """Lay the paragraphs out as one document, recording each paragraph's token span.
 
-    Plain text, no chat template: the template's control tokens would sit inside the
-    document and complicate the position bookkeeping for no benefit here.
+    Plain text, no chat template -- control tokens inside the document would
+    complicate position bookkeeping for no benefit.
     """
     pieces: List[str] = []
     for j, para in enumerate(ex.paragraphs):
@@ -162,12 +159,10 @@ def render_and_tokenize(lm, ex: Example) -> TokenizedExample:
 def choose_side_info(
     tex: TokenizedExample, n_paragraphs: int, seed: int
 ) -> List[int]:
-    """Pick which paragraphs the receiver already holds.
+    """Pick which paragraphs the receiver already holds -- distractors only.
 
-    Drawn only from distractors, so the gold evidence is always missing from the
-    receiver and must cross the handoff.  With `n_paragraphs=0` the receiver has
-    nothing but the question -- the control condition in which the receiver-conditioned
-    and sender-side scores are mathematically identical.
+    With `n_paragraphs=0` the receiver has nothing but the question, the control
+    condition in which the receiver-conditioned and sender-side scores are identical.
     """
     distractors = tex.ex.distractor_idx
     if n_paragraphs <= 0:

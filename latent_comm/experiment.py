@@ -1,12 +1,5 @@
-"""The experiment loop.
-
-For each question we run the worker once, score the document twice per
-side-information level, and then evaluate every (rule x budget) combination by reading
-the gold answer out of the handed-over cache.
-
-Cost per example on a T4 with Qwen2.5-0.5B: one full-length prefill, 1 + |S levels|
-full-length scoring passes, and |S levels| x |budgets| x |rules| short passes that only
-forward the question and answer against an already-built cache.
+"""The experiment loop: one worker prefill per question, one scoring pass per
+side-information level, then one short answer-scoring pass per (rule x budget) cell.
 """
 
 from __future__ import annotations

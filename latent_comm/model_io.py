@@ -1,17 +1,9 @@
-"""Forward passes: worker prefill (with attention accounting), token surprisal, and
-the scoring pass that reads an answer out of a handed-over cache.
+"""Worker prefill with attention accounting, token surprisal, and answer scoring.
 
-Everything here is a plain `model(...)` call.  The only non-obvious parts are:
-
-*   `prefill_with_attention` runs the document in chunks so that the [q_len, kv_len]
-    attention matrices never all exist at once.  Full-document `output_attentions=True`
-    on a 1.5k-token context costs ~3 GB in fp16 across 24 layers; chunking keeps the
-    peak at a few hundred MB and gives the same accumulated score.
-
-*   `answer_nll` passes explicit `position_ids`.  The handed-over cache has fewer
-    entries than the positions it came from, so the default "positions continue from
-    len(past)" behaviour would be wrong -- we want the question to sit at position
-    `doc_len`, right after the document the worker read.
+All plain `model(...)` calls.  Two non-obvious parts: `prefill_with_attention` chunks
+the document because full-length `output_attentions=True` costs ~3 GB in fp16 across
+24 layers, and `answer_nll` passes explicit `position_ids` because the handed-over
+cache is shorter than the positions it came from.
 """
 
 from __future__ import annotations
@@ -52,9 +44,9 @@ def load_lm(
 ) -> LM:
     """Load the model.
 
-    `attn_implementation="eager"` is required: SDPA and FlashAttention do not
-    materialise the attention matrix, so `output_attentions=True` silently returns
-    None and the H2O-style baseline cannot be computed.
+    `attn_implementation="eager"` is required: SDPA and FlashAttention never
+    materialise the attention matrix, so `output_attentions=True` returns None and the
+    salience baseline cannot be computed.
     """
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -86,11 +78,9 @@ def prefill_with_attention(
 ) -> Tuple[object, torch.Tensor]:
     """Run the worker's pass over the document.
 
-    Returns
-    -------
-    cache : the full KV cache for the document (all positions)
-    attn_score : [seq_len] float32, the accumulated attention each position received,
-        summed over every layer, head and query -- the H2O "heavy hitter" statistic.
+    Returns the full cache plus [seq_len] accumulated attention per position, summed
+    over every layer, head and query.  Note this statistic is dominated by the
+    position-0 sink at prefill time -- see report, "A baseline that did not work".
     """
     seq_len = input_ids.shape[1]
     score = torch.zeros(seq_len, dtype=torch.float32, device=lm.device)
@@ -185,11 +175,9 @@ def answer_nll(
 ) -> float:
     """Mean -log p(answer | handed-over cache, question).
 
-    `question_start_pos` is where the question sits in the *document's* coordinate
-    system (normally `doc_len`), not `len(cache)`.  The cache is shorter than the
-    document because most positions were dropped, but the surviving keys still carry
-    their original rotary phase, so the question has to be placed after the document,
-    not after the cache.
+    `question_start_pos` is in the *document's* coordinate system (normally `doc_len`),
+    not `len(cache)`: surviving keys keep their original rotary phase, so the question
+    belongs after the document, not after the shortened cache.
     """
     qa = torch.cat([question_ids, answer_ids], dim=1)
     n_q = question_ids.shape[1]
@@ -228,7 +216,7 @@ def greedy_answer(
     question_start_pos: int,
     max_new_tokens: int = 24,
 ) -> str:
-    """Greedy decode from a handed-over cache -- used for the secondary EM/F1 metric."""
+    """Greedy decode from a handed-over cache, for the secondary EM/F1 metric."""
     from .kvcache import to_legacy, from_legacy
 
     work = from_legacy(tuple((k.clone(), v.clone()) for k, v in to_legacy(cache)))
