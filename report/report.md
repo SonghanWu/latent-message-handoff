@@ -38,13 +38,15 @@ change.
 
 ## 2. The mapping, and where it stops
 
-| Wyner–Ziv | latent handoff | status |
+| Wyner–Ziv object | in this handoff | exact or analogy |
 |---|---|---|
-| source *X* | worker's KV cache over the document | exact |
-| side information *Y* at the decoder | receiver's own context + model priors | context exact; priors informal |
-| message, rate *R* | selected cache entries; scalars shipped | exact, and counted |
-| distortion *d* | receiver's NLL of the gold answer | a valid distortion, not the MSE the closed forms assume |
-| encoder blind to *Y* | H2O / SnapKV ranking blind to the receiver | exact |
+| encoder, source *X* | the **worker** and its KV cache over the document | exact — a concrete tensor, and the thing we transmit |
+| decoder | the **receiver**: a separate instance that must answer the question | exact |
+| side information *Y*, held only by the decoder | the **receiver's own context**, plus its model priors | context exact; "priors" informal |
+| message | the **selected cache entries** that cross the handoff | exact |
+| rate *R* | the **communication budget**: *B* token positions × 2·L·H_kv·d_head scalars each (6,144 for Qwen2.5-0.5B, so 1.71M scalars at the 20 % budget) | exact, and counted per run |
+| distortion *d(x, x̂)* | the **notion of error**: the receiver's NLL of the gold answer | a valid distortion, but not the MSE the closed forms assume |
+| encoder blind to *Y* | H2O / SnapKV ranking blind to the receiver | exact — this is the situation the theorem addresses |
 
 **Where it is analogy only.** A transformer cache is not an i.i.d. source: no block
 length, no asymptotics, hence no achievable-rate claim to inherit — only the *direction*
