@@ -20,9 +20,10 @@ piece of *X* is worth depends on the uncertainty left after conditioning on *Y*.
 the distortion measure is a free choice; nothing requires *d(x, x̂)* to be reconstruction
 error.
 
-The second is why this is not just "avoid duplicates". H2O ranks cache entries by
-accumulated attention, SnapKV by the attention a trailing window pays to the prefix,
-StreamingLLM by position. All three are computed inside the sender, because in
+The second is why this is not just "avoid duplicates". [H2O](https://arxiv.org/abs/2306.14048)
+ranks cache entries by accumulated attention, [SnapKV](https://arxiv.org/abs/2404.14469) by
+the attention a trailing window pays to the prefix,
+[StreamingLLM](https://arxiv.org/abs/2309.17453) by position. All three are computed inside the sender, because in
 single-model inference there is no receiver to condition on. An agent handoff has one.
 
 ## 2. The mapping
