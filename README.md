@@ -1,6 +1,6 @@
 # What Should a Latent Message Preserve?
 
-DAPLab Latent-comm task. The write-up is [`report/report.md`](report/report.md); the run
+Latent-comm task. The write-up is [`report/report.md`](report/report.md); the run
 with outputs inline is [`notebooks/latent_message.ipynb`](notebooks/latent_message.ipynb).
 
 ```bash
